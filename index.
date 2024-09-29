@@ -1,0 +1,561 @@
+<!doctype html>
+<head>
+  <title>UniRegex</title>
+</head>
+<body>
+This is a compiler that turns unicode regexes into 8-bit regexes for matching utf-8 strings. This is possible for the same reason that <a href="https://stackoverflow.com/questions/33512037/a-regular-expression-generator-for-number-ranges">it's possible to write regexes that match ranges of decimal numbers</a>. Character classes (not just <tt>[a-z]</tt> style classes, but also <tt>.</tt>, <tt>\s</tt>, etc) need to be compiled to such range matchers; however, normal text does not.
+<br/>
+<br/>
+Unicode Character Category character classes like <tt>\p{Alphabetic}</tt> are not supported. <tt>\d</tt> and <tt>\w</tt> use a non-unicode definition. <tt>\s</tt> has a fixed definition that matches ECMAScript's (JS's), rather than being based on a particular unicode version.
+<br/>
+<br/>
+↓ your unicode regex character class
+<br/>
+<!--あ-蛙-->
+<!--む-無-->
+<!--む-䀀-->
+<!--い-䀀-->
+<input id="input" value="[a-zい-䀀]*?">
+<br/>
+↓ 8-bit-regex-compatible equivalent here
+<br/>
+<code id="output"> asdf
+
+</code>
+<br/>
+<div id="bottom">Known escape sequence types: <tt>\xNN</tt>, <tt>\x{NN...NN}</tt>, <tt>\uNNNN</tt>, <tt>\w\W\s\S\d\D</tt> (no unicode character category handling)
+
+
+  <script>
+window.onload = () =>
+{
+    document.getElementById("input").oninput = (event) =>
+    {
+        let input_text = document.getElementById("input").value;
+        let output_text = input_text;
+        output_text = "<invalid>";
+        
+        function byte_to_printable(x)
+        {
+        	if (x == "]".codePointAt(0))
+            	return "\\]";
+            else if (x >= 0x20 && x <= 0x7E)
+                return String.fromCodePoint(x);
+            else if (x == "\r".codePointAt(0))
+                return "\\r";
+            else if (x == "\n".codePointAt(0))
+                return "\\n";
+            else if (x == "\t".codePointAt(0))
+                return "\\t";
+            else if (x == "\f".codePointAt(0))
+                return "\\f";
+            else if (x == "\v".codePointAt(0))
+                return "\\v";
+            else
+                return "\\x" + x.toString(16).padStart(2, '0');
+        }
+        
+        function multibyte_to_printable(x)
+        {
+        	if (x <= 0x7F)
+            	return byte_to_printable(x);
+            if (x <= 0x7FF)
+            	return "\\x" + ((x >> 6) | 0xC0).toString(16).padStart(2, '0') + 
+                	   "\\x" + ((x & 0x3F) | 0x80).toString(16).padStart(2, '0');
+            if (x <= 0xFFFF)
+            	return "\\x" + ((x >> 12) | 0xE0).toString(16).padStart(2, '0') + 
+                	   "\\x" + (((x >> 6) & 0x3F) | 0x80).toString(16).padStart(2, '0') +
+                	   "\\x" + ((x & 0x3F) | 0x80).toString(16).padStart(2, '0');
+    		else
+            	return "\\x" + ((x >> 18) | 0xF0).toString(16).padStart(2, '0') + 
+                	   "\\x" + (((x >> 12) & 0x3F) | 0x80).toString(16).padStart(2, '0') +
+                	   "\\x" + (((x >>  6) & 0x3F) | 0x80).toString(16).padStart(2, '0') +
+                	   "\\x" + ((x & 0x3F) | 0x80).toString(16).padStart(2, '0');
+        }
+    
+        function char_array_to_alternations(chars, start, end, is_negated)
+        {
+        	console.log("!!!!!");
+        	console.log(chars);
+            let failed = false;
+            let in_escape = false;
+            let in_range = false;
+            let range_start = 0;
+    
+            function class_to_ranges(c)
+            {
+                if (c == "d")
+                    return [[48,57]];
+                else if (c == "D")
+                    return [[0,47],[58,1114111]];
+                else if (c == "s")
+                    return [[9,13],[32,32],[160,160],[5760,5760],[8192,8202],[8232,8233],[8239,8239],[8287,8287],[12288,12288],[65279,65279]];
+                else if (c == "S")
+                    return [[0,8],[14,31],[33,159],[161,5759],[5761,8191],[8203,8231],[8234,8238],[8240,8286],[8288,12287],[12289,65278],[65280,1114111]];
+                else if (c == "w")
+                    return [[48,57],[65,90],[95,95],[97,122]];
+                else if (c == "W")
+                    return [[0,47],[58,64],[91,94],[96,96],[123,1114111]];
+                return [];
+            }
+    
+            let classes = [];
+    
+            for (let i = start; i < end; i += 1)
+            {
+                let c = chars[i].codePointAt(0);
+                let is_class = false;
+                let class_number = 0;
+                let class_letter = "";
+                if (in_escape)
+                {
+                    in_escape = false;
+                    let hexdigits = "0123456789ABCDEFabcdef";
+    
+                    if (c == 'n'.codePointAt(0))
+                        c = '\n'.codePointAt(0);
+                    else if (c == 'r'.codePointAt(0))
+                        c = '\r'.codePointAt(0);
+                    else if (c == 't'.codePointAt(0))
+                        c = '\t'.codePointAt(0);
+                    else if (c == 'v'.codePointAt(0))
+                        c = '\v'.codePointAt(0);
+                    else if (c == 'f'.codePointAt(0))
+                        c = '\f'.codePointAt(0);
+                    else if ("wWsSdD".includes(String.fromCodePoint(c)))
+                    {
+                        is_class = true;
+                        class_number = c;
+                        class_letter = String.fromCodePoint(c);
+                        i += 1;
+                    }
+                    else if (c == "u".codePointAt(0))
+                    {
+                        if (hexdigits.includes(chars[i+1]) && hexdigits.includes(chars[i+2]) &&
+                            hexdigits.includes(chars[i+3]) && hexdigits.includes(chars[i+4]))
+                        {
+                            c = (hexdigits.search(chars[i+1].toUpperCase()) * 0x1000
+                                 + hexdigits.search(chars[i+2].toUpperCase()) * 0x100
+                                 + hexdigits.search(chars[i+3].toUpperCase()) * 0x10
+                                 + hexdigits.search(chars[i+4].toUpperCase()));
+                            i += 4;
+                        }
+                        else
+                            failed = true;
+                    }
+                    else if (c == "x".codePointAt(0))
+                    {
+                        if (hexdigits.includes(chars[i+1]) && hexdigits.includes(chars[i+2]))
+                        {
+                            c = (hexdigits.search(chars[i+1].toUpperCase()) * 0x10
+                                 + hexdigits.search(chars[i+2].toUpperCase()));
+                            i += 2;
+                        }
+                        else if (chars[i+1] == "{" && hexdigits.includes(chars[i+2]))
+                        {
+                            let n = i+2;
+                            let num = 0;
+                            while (n < end && chars[n] != "}")
+                            {
+                                num *= 0x10;
+                                num += hexdigits.search(chars[n].toUpperCase());
+                                n += 1;
+                            }
+                            i = n;
+                            c = num;
+                        }
+                        else
+                            failed = true;
+                    }
+                }
+                else
+                {
+                    if (c == "\\".codePointAt(0))
+                    {
+                        in_escape = true;
+                        continue;
+                    }
+                }
+    
+                if (!is_class && !in_range && chars[i+1] == "-" && chars[i+2] !== undefined && chars[i+2] != "]")
+                {
+                    in_range = true;
+                    range_start = c;
+                    //console.log(c);
+                    //console.log(range_start);
+                    i += 1;
+                    continue;
+                }
+                if (in_range && is_class)
+                {
+                    classes.push([range_start, range_start]);
+                    classes.push(["-".codePointAt(0), "-".codePointAt(0)]);
+                    classes.push([class_number, class_number]);
+                    in_range = false;
+                }
+                else if (in_range)
+                {
+                    if (c < range_start)
+                    {
+                        failed = true;
+                        break;
+                    }
+                    in_range = false;
+                    classes.push([range_start, c]);
+                }
+                else if (is_class)
+                {
+                    classes.push(...class_to_ranges(class_letter));
+                    console.log(classes);
+                    console.log(class_letter);
+                    in_range = false;
+                }
+                else if (c == ".".codePointAt(0))
+                    classes.push([0, 0x10FFFF]);
+                else
+                    classes.push([c, c]);
+            }
+            if (failed)
+            	return -1;
+    
+            console.log("----");
+    
+            console.log(classes);
+            classes.sort((a, b) => a[0] - b[0]);
+            console.log(classes);
+            for (let i = 1; i < classes.length; i += 1)
+            {
+                if (classes[i - 1][1] + 1 >= classes[i][0])
+                {
+                    if (classes[i - 1][1] < classes[i][1])
+                        classes[i - 1][1] = classes[i][1];
+                    classes.splice(i, 1);
+                    i -= 1;
+                }
+            }
+            console.log(classes);
+    
+            if (is_negated)
+            {
+                let new_classes = [];
+    
+                if (classes[0][0] != 0)
+                    new_classes.push([0, classes[0][0] - 1]);
+                for (let i = 0; i < classes.length - 1; i += 1)
+                    new_classes.push([classes[i][1] + 1, classes[i+1][0] - 1]);
+                if (classes[classes.length - 1][1] != 0x10FFFF)
+                    new_classes.push([classes[classes.length - 1][1] + 1, 0x10FFFF]);
+                classes = new_classes;
+            }
+    
+            // split any ranges that span byte length boundaries
+            for (let i = classes.length - 1; i >= 0; i -= 1)
+            {
+                if (classes[i][0] <= 0xFFFF && classes[i][1] > 0xFFFF)
+                {
+                    classes.splice(i + 1, 0, [0xFFFF + 1, classes[i][1]]);
+                    classes[i][1] = 0xFFFF;
+                }
+                if (classes[i][0] <= 0x7FF && classes[i][1] > 0x7FF)
+                {
+                    classes.splice(i + 1, 0, [0x7FF + 1, classes[i][1]]);
+                    classes[i][1] = 0x7FF;
+                }
+                if (classes[i][0] <= 0x7F && classes[i][1] > 0x7F)
+                {
+                    classes.splice(i + 1, 0, [0x7F + 1, classes[i][1]]);
+                    classes[i][1] = 0x7F;
+                }
+            }
+    
+            let any_continuation = ".";
+            //let any_continuation = "[\\x80-\\xbf]";
+            function byte_range_to_text(range)
+            {
+                if (range[0] == range[1])
+                    return byte_to_printable(range[0]);
+                return "[" + byte_to_printable(range[0]) + "-" + byte_to_printable(range[1]) + "]";
+            }
+            function range_to_text(range)
+            {
+                if (range[0] == range[1] && range[1] <= 0x7F)
+                    return byte_to_printable(range[0]);
+                if (range[0] == range[1])
+                    return multibyte_to_printable(range[0]);
+                if (range[1] <= 0x7F)
+                    return "[" + byte_to_printable(range[0]) + "-" + byte_to_printable(range[1]) + "]";
+                if (range[0] == 0x80 && range[1] == 0x7FF)
+                    return "[\\xc0-\\xdf]"+any_continuation;
+                if (range[0] == 0x800 && range[1] == 0xFFFF)
+                    return "[\\xe0-\\xef]"+any_continuation+any_continuation;
+                if (range[0] == 0x10000 && range[1] == 0x10FFFF)
+                    return "[\\xf0-\\xf7]"+any_continuation+any_continuation+any_continuation;
+    
+                function flatten(str)
+                {
+                    if (str == "[\\x80-\\xbf]" || str == "[\\x00-\\xff]" ||
+                        str == "[\\x80-\\xff]" || str == "[\\x00-\\xbf]")
+                        return ".";
+                    return str;
+                }
+    
+                let lo = [];
+                let hi = [];
+                if (range[0] <= 0x7FF)
+                {
+                    lo.push(range[0] & 0x3F);
+                    lo.push(range[0] >> 6);
+                    hi.push(range[1] & 0x3F);
+                    hi.push(range[1] >> 6);
+                }
+                if (range[0] >= 0x800 && range[0] <= 0xFFFF)
+                {
+                    lo.push( range[0] & 0x3F);
+                    lo.push((range[0] >> 6) & 0x3F);
+                    lo.push( range[0] >> 12);
+                    hi.push( range[1] & 0x3F);
+                    hi.push((range[1] >> 6) & 0x3F);
+                    hi.push( range[1] >> 12);
+                }
+                if (range[0] >= 0x10000)
+                {
+                    lo.push( range[0] & 0x3F);
+                    lo.push((range[0] >> 6) & 0x3F);
+                    lo.push((range[0] >> 12) & 0x3F);
+                    lo.push( range[0] >> 18);
+                    hi.push( range[1] & 0x3F);
+                    hi.push((range[1] >> 6) & 0x3F);
+                    hi.push((range[1] >> 12) & 0x3F);
+                    hi.push( range[1] >> 18);
+                }
+                let hmax = hi.length - 1;
+                let los = [[...lo]];
+                let his = [[...hi]];
+                console.log("----");
+                console.log(los);
+                console.log(his);
+                function cmp(a, b)
+                {
+                    for (let i = a.length - 1; i >= 0; i -= 1)
+                        if (a[i] != b[i])
+                            return a[i] - b[i];
+                    return 0;
+                }
+                for (let i = 0; i < lo.length; i += 1)
+                {
+                    let mylo = [...los.at(-1)];
+                    let myhi = [...his.at(-1)];
+                    for (let j = 0; j < lo.length; j += 1)
+                    {
+                        let mylo_old = mylo[j];
+                        mylo[j] = 0x3F;
+                        if (mylo_old != 0)
+                            break;
+                    }
+                    for (let j = 0; j < hi.length; j += 1)
+                    {
+                        let myhi_old = myhi[j];
+                        myhi[j] = 0;
+                        if (myhi_old != 0x3F)
+                            break;
+                    }
+                    if (cmp(mylo, hi) < 0)
+                    {
+                        los.push([...mylo]);
+                        for (let j = 0; j < mylo.length; j += 1)
+                        {
+                            mylo[j] += 1;
+                            if (mylo[j] == 0x40)
+                                mylo[j] = 0;
+                            else
+                                break;
+                        }
+                        los.push(mylo);
+                    }
+                    if (cmp(lo, myhi) < 0)
+                    {
+                        his.push([...myhi]);
+                        for (let j = 0; j < myhi.length; j += 1)
+                        {
+                            myhi[j] -= 1;
+                            if (myhi[j] == -1)
+                                myhi[j] = 0x3F;
+                            else
+                                break;
+                        }
+                        his.push(myhi);
+                    }
+                }
+                console.log(los);
+                console.log(his);
+                while (cmp(los.at(-1), his.at(-1)) > 0)
+               	{
+                	los.pop();
+                	his.pop();
+                }
+                his.reverse();
+                los.push(...his);
+                console.log(los);
+                for (let i = 0; i < los.length; i += 1)
+                {
+                	console.log(i);
+                    if (los[i].length == 2)
+                        los[i] = [los[i][1] | 0xC0,
+                            	  los[i][0] | 0x80];
+                    else if (los[i].length == 3)
+                        los[i] = [los[i][2] | 0xE0,
+                            	  los[i][1] | 0x80,
+                            	  los[i][0] | 0x80];
+                    else if (los[i].length == 4)
+                        los[i] = [los[i][3] | 0xF0,
+                            	  los[i][2] | 0x80,
+                            	  los[i][1] | 0x80,
+                            	  los[i][0] | 0x80];
+                }
+                console.log(los);
+                let pairs = [];
+                for (let i = 0; i < los.length; i += 2)
+                    pairs.push([los[i], los[i + 1]]);
+                console.log(pairs);
+                console.log("xxx");
+                let ret = "";
+                for (let p of pairs)
+                {
+                	console.log(p[0], p[1]);
+                	for (let i = 0; i < p[0].length; i += 1)
+                    	ret += flatten(byte_range_to_text([p[0][i], p[1][i]]));
+                    ret += "|";
+                }
+                if (ret.endsWith("|"))
+                    ret = ret.substring(0, ret.length - 1);
+                console.log(ret);
+                return ret;
+            }
+    
+            console.log(classes);
+            
+            let is_1byte = classes.length == 1 && classes[0][1] <= 0x7F;
+    		
+            let ret = !is_1byte ? "(?:" : "";
+            for (let range of classes)
+                ret += range_to_text(range) + "|";
+            if (ret.endsWith("|"))
+                ret = ret.substring(0, ret.length - 1);
+            ret += !is_1byte ? ")" : "";
+            return ret;
+        }
+        
+        let in_escape = false;
+        let ret = "";
+        for (let i = 0; i < input_text.length; i += 1)
+        {
+        	let c = input_text.codePointAt(i);
+            if (in_escape)
+            {
+            	in_escape = false;
+                if ("WwSsDd".includes(input_text[i]))
+                {
+                	ret += char_array_to_alternations(["\\", input_text[i]], 0, 2, false);
+                	continue;
+                }
+                if (input_text[i] == "u" && i+4 < input_text.length)
+                {
+                	ret += char_array_to_alternations([
+                    	"\\",
+                        input_text[i],
+                        input_text[i+1],
+                        input_text[i+2],
+                        input_text[i+3],
+                        input_text[i+4]
+                    ], 0, 2, false);
+                    i += 4;
+                	continue;
+                }
+                if (input_text[i] == "x" && input_text[i + 1] == "{")
+                {
+                	let j = i + 2;
+                    while (j < input_text.length && input_text[j] != "}")
+                    	j += 1;
+                    if (j != input_text.length)
+                    {
+                    	ret += char_array_to_alternations(Array.from(input_text.slice(i - 1, j + 1)), 0, j - i + 1, false);
+                        i += j - i;
+                		continue;
+                    }
+                }
+                ret += "\\";
+                ret += String.fromCodePoint(c);
+            	if (c > 0xFFFF)
+                	i += 1;
+                continue;
+            }
+            if (input_text[i] == "\\")
+            {
+            	in_escape = true;
+                continue;
+            }
+            if (input_text[i] != "[")
+            {
+                ret += char_array_to_alternations([String.fromCodePoint(c)], 0, 1, false);
+            	if (c > 0xFFFF)
+                	i += 1;
+            	continue;
+            }
+            
+            let itext = input_text.slice(i+1);
+            let group_end_re = /(?:[^\\\]]|\\.)*?(])/d;
+            let caps = itext.match(group_end_re);
+            if (caps == undefined)
+            {
+            	ret = "<failed to parse>";
+                break;
+            }
+            console.log(caps.indices);
+            let end_pos = caps.indices[1][0] + 1;
+            if (end_pos <= 0)
+            {
+            	ret = "<failed to parse>";
+                break;
+            }
+            
+            // necessary because js string indexes are utf-16 code unit locations, not codepoint locations
+            let chars = [];
+            for (let i = 0; i < end_pos; i++)
+            {
+            	let c = itext.codePointAt(i);
+            	if (c > 0xFFFF)
+                	i++;
+                if (i != 0 || itext[i] != "^")
+                	chars.push(String.fromCodePoint(c));
+            }
+            
+            let is_negated = input_text[0] == "^";
+            let start = is_negated ? 1 : 0;
+    
+            let info = char_array_to_alternations(chars, start, chars.length - 1, is_negated);
+    		
+    		if (info === -1)
+            	return "<failed to parse>";
+    		
+            let quantifier_re = /(?:[^\\\]]|\\.)*?](([+*?]|\{\d+,?\d*})[?+]?|)/d;
+            let caps2 = itext.match(quantifier_re);
+            
+    		ret += info;
+            if (caps2)
+            	ret += itext.substr(caps2.indices[1][0], caps2.indices[1][1] - caps2.indices[1][0],);
+    		
+            //i -= 1;
+            if (caps2)
+            	i += caps2.indices[1][1];
+            else
+            	i += end_pos;
+        }
+        //document.getElementById("output").innerText = output_text;
+        document.getElementById("output").innerText = ret;
+    };
+    
+    document.getElementById("input").oninput();
+}
+</script>
+</body>
+</html>
