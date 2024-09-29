@@ -102,8 +102,8 @@ window.onload = () =>
     
         function char_array_to_alternations(chars, start, end, is_negated)
         {
-            console.log("!!!!!");
-            console.log(chars);
+            //console.log("!!!!!");
+            //console.log(chars);
             let failed = false;
             let in_escape = false;
             let in_range = false;
@@ -233,8 +233,8 @@ window.onload = () =>
                 else if (is_class)
                 {
                     classes.push(...class_to_ranges(class_letter));
-                    console.log(classes);
-                    console.log(class_letter);
+                    //console.log(classes);
+                    //console.log(class_letter);
                     in_range = false;
                 }
                 else if (c == ".".codePointAt(0))
@@ -245,11 +245,11 @@ window.onload = () =>
             if (failed)
                 return -1;
     
-            console.log("----");
+            //console.log("----");
     
-            console.log(classes);
+            //console.log(classes);
             classes.sort((a, b) => a[0] - b[0]);
-            console.log(classes);
+            //console.log(classes);
             for (let i = 1; i < classes.length; i += 1)
             {
                 if (classes[i - 1][1] + 1 >= classes[i][0])
@@ -260,7 +260,7 @@ window.onload = () =>
                     i -= 1;
                 }
             }
-            console.log(classes);
+            //console.log(classes);
     
             if (is_negated)
             {
@@ -358,9 +358,9 @@ window.onload = () =>
                 let hmax = hi.length - 1;
                 let los = [[...lo]];
                 let his = [[...hi]];
-                console.log("----");
-                console.log(los);
-                console.log(his);
+                //console.log("----");
+                //console.log(los);
+                //console.log(his);
                 function cmp(a, b)
                 {
                     for (let i = a.length - 1; i >= 0; i -= 1)
@@ -413,8 +413,8 @@ window.onload = () =>
                         his.push(myhi);
                     }
                 }
-                console.log(los);
-                console.log(his);
+                //console.log(los);
+                //console.log(his);
                 while (cmp(los.at(-1), his.at(-1)) > 0)
                 {
                     los.pop();
@@ -422,10 +422,10 @@ window.onload = () =>
                 }
                 his.reverse();
                 los.push(...his);
-                console.log(los);
+                //console.log(los);
                 for (let i = 0; i < los.length; i += 1)
                 {
-                    console.log(i);
+                    //console.log(i);
                     if (los[i].length == 2)
                         los[i] = [los[i][1] | 0xC0,
                                   los[i][0] | 0x80];
@@ -439,27 +439,30 @@ window.onload = () =>
                                   los[i][1] | 0x80,
                                   los[i][0] | 0x80];
                 }
-                console.log(los);
+                //console.log(los);
                 let pairs = [];
                 for (let i = 0; i < los.length; i += 2)
                     pairs.push([los[i], los[i + 1]]);
-                console.log(pairs);
-                console.log("xxx");
+                //console.log(pairs);
+                //console.log("xxx");
                 let ret = "";
                 for (let p of pairs)
                 {
-                    console.log(p[0], p[1]);
+                    //console.log(p[0], p[1]);
                     for (let i = 0; i < p[0].length; i += 1)
                         ret += flatten(byte_range_to_text([p[0][i], p[1][i]]));
                     ret += "|";
                 }
                 if (ret.endsWith("|"))
                     ret = ret.substring(0, ret.length - 1);
-                console.log(ret);
+                //console.log(ret);
                 return ret;
             }
+            
+            if (classes.length == 0)
+                return -1;
     
-            console.log(classes);
+            //console.log(classes);
             
             let is_1byte = classes.length == 1 && classes[0][1] <= 0x7F;
             
@@ -537,7 +540,7 @@ window.onload = () =>
                 ret = "<failed to parse>";
                 break;
             }
-            console.log(caps.indices);
+            //console.log(caps.indices);
             let end_pos = caps.indices[1][0] + 1;
             if (end_pos <= 0)
             {
@@ -562,7 +565,10 @@ window.onload = () =>
             let info = char_array_to_alternations(chars, start, chars.length - 1, is_negated);
             
             if (info === -1)
-                return "<failed to parse>";
+            {
+                ret = "<failed to parse>";
+                break;
+            }
             
             let quantifier_re = /(?:[^\\\]]|\\.)*?](([+*?]|\{\d+,?\d*})[?+]?|)/d;
             let caps2 = itext.match(quantifier_re);
