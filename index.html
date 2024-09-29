@@ -3,16 +3,17 @@
 <meta http-equiv="content-type" content="text/html; charset=UTF-8">
   <title>UniRegex</title>
   <style>
-    body {margin: 20px auto 0; width: 1000px;}
+body { margin: 20px auto 0; width: 1000px; }
 pre { background: #ccc; padding: 2px 4px; display: inline-block; }
 #bottom { 
-   opacity: 0.65;
-   font-size: 80%;
-   padding-bottom: 10px;
+    opacity: 0.65;
+    font-size: 80%;
+    padding-bottom: 10px;
 }
-tt, input, #output { font-family: monospace;  }
+tt, input, #output { font-family: monospace; }
 body { font-size: 10pt; }
-code {
+mycode {
+    font-family: monospace;
     background: #ccc;
     padding: 2px 4px;
     border: 1px solid grey;
@@ -42,7 +43,7 @@ Unicode Character Category character classes like <tt>\p{Alphabetic}</tt> are no
 <br>
 ↓ 8-bit-regex-compatible equivalent here
 <br>
-<code id="output">(?:[a-z]|\xe3\x81[\x84-\xbf]|\xe3[\x82-\xbf].|\xe4\x80\x80)*?</code>
+<mycode id="output">(?:[a-z]|\xe3\x81[\x84-\xbf]|\xe3[\x82-\xbf].|\xe4\x80\x80)*?</mycode>
 <br>
 <br>
 <div id="bottom">Known escape sequence types: <tt>\xNN</tt>, <tt>\x{NN...NN}</tt>, <tt>\uNNNN</tt>, <tt>\w\W\s\S\d\D</tt> (no unicode character category handling)</div>
@@ -580,6 +581,5 @@ window.onload = () =>
     document.getElementById("input").oninput();
 }
 </script>
-
-
-</div></body></html>
+</body>
+</html>
