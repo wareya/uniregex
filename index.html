@@ -2,6 +2,27 @@
 <html>
 <head>
   <title>UniRegex</title>
+  <style>
+    body {margin: auto; width: 1000px;}
+pre { background: #ccc; padding: 2px 4px; display: inline-block; }
+#bottom { 
+   color: grey;
+   font-size: 80%;
+   padding-bottom: 10px;
+}
+tt, input, #output { font-family: monospace;  }
+body { font-size: 10pt; }
+code {
+    background: #ccc;
+    padding: 2px 4px;
+    border: 1px solid grey;
+    border-radius: 2px;
+    overflow-y: scroll;
+    width: 400px;
+    height: 100px !important;
+    display: inline-block;
+}
+  </style>
 </head>
 <body>
 This is a compiler that turns unicode regexes into 8-bit regexes for matching utf-8 strings. This is possible for the same reason that <a href="https://stackoverflow.com/questions/33512037/a-regular-expression-generator-for-number-ranges">it's possible to write regexes that match ranges of decimal numbers</a>. Character classes (not just <tt>[a-z]</tt> style classes, but also <tt>.</tt>, <tt>\s</tt>, etc) need to be compiled to such range matchers; however, normal text does not.
