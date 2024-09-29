@@ -1,12 +1,12 @@
-<!doctype html>
-<html>
-<head>
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
   <title>UniRegex</title>
   <style>
     body {margin: 20px auto 0; width: 1000px;}
 pre { background: #ccc; padding: 2px 4px; display: inline-block; }
 #bottom { 
-   color: grey;
+   opacity: 0.65;
    font-size: 80%;
    padding-bottom: 10px;
 }
@@ -25,27 +25,28 @@ code {
   </style>
 </head>
 <body>
-This is a compiler that turns unicode regexes into 8-bit regexes for matching utf-8 strings. This is possible for the same reason that <a href="https://stackoverflow.com/questions/33512037/a-regular-expression-generator-for-number-ranges">it's possible to write regexes that match ranges of decimal numbers</a>. Character classes (not just <tt>[a-z]</tt> style classes, but also <tt>.</tt>, <tt>\s</tt>, etc) need to be compiled to such range matchers; however, normal text does not.
-<br/>
-<br/>
+This is a compiler that turns unicode regexes into 8-bit regexes for 
+matching utf-8 strings. This is possible for the same reason that <a href="https://stackoverflow.com/questions/33512037/a-regular-expression-generator-for-number-ranges">it's possible to write regexes that match ranges of decimal numbers</a>. Character classes (not just <tt>[a-z]</tt> style classes, but also <tt>.</tt>, <tt>\s</tt>, etc) need to be compiled to such range matchers; however, normal text does not.
+<br>
+<br>
 Unicode Character Category character classes like <tt>\p{Alphabetic}</tt> are not supported. <tt>\d</tt> and <tt>\w</tt> use a non-unicode definition. <tt>\s</tt> has a fixed definition that matches ECMAScript's (JS's), rather than being based on a particular unicode version.
-<br/>
-<br/>
+<br>
+<br>
 ↓ your unicode regex character class
-<br/>
+<br>
 <!--あ-蛙-->
 <!--む-無-->
 <!--む-䀀-->
 <!--い-䀀-->
 <input id="input" value="[a-zい-䀀]*?">
-<br/>
+<br>
 ↓ 8-bit-regex-compatible equivalent here
-<br/>
-<code id="output"> asdf
-
-</code>
-<br/>
-<div id="bottom">Known escape sequence types: <tt>\xNN</tt>, <tt>\x{NN...NN}</tt>, <tt>\uNNNN</tt>, <tt>\w\W\s\S\d\D</tt> (no unicode character category handling)
+<br>
+<code id="output">(?:[a-z]|\xe3\x81[\x84-\xbf]|\xe3[\x82-\xbf].|\xe4\x80\x80)*?</code>
+<br>
+<br>
+<div id="bottom">Known escape sequence types: <tt>\xNN</tt>, <tt>\x{NN...NN}</tt>, <tt>\uNNNN</tt>, <tt>\w\W\s\S\d\D</tt> (no unicode character category handling)</div>
+<div id="bottom"><a href="https://github.com/wareya/uniregex/tree/main">Report a bug on github! https://github.com/wareya/uniregex/tree/main</a></div>
 
 
   <script>
@@ -59,8 +60,8 @@ window.onload = () =>
         
         function byte_to_printable(x)
         {
-        	if (x == "]".codePointAt(0))
-            	return "\\]";
+            if (x == "]".codePointAt(0))
+                return "\\]";
             else if (x >= 0x20 && x <= 0x7E)
                 return String.fromCodePoint(x);
             else if (x == "\r".codePointAt(0))
@@ -79,26 +80,26 @@ window.onload = () =>
         
         function multibyte_to_printable(x)
         {
-        	if (x <= 0x7F)
-            	return byte_to_printable(x);
+            if (x <= 0x7F)
+                return byte_to_printable(x);
             if (x <= 0x7FF)
-            	return "\\x" + ((x >> 6) | 0xC0).toString(16).padStart(2, '0') + 
-                	   "\\x" + ((x & 0x3F) | 0x80).toString(16).padStart(2, '0');
+                return "\\x" + ((x >> 6) | 0xC0).toString(16).padStart(2, '0') + 
+                       "\\x" + ((x & 0x3F) | 0x80).toString(16).padStart(2, '0');
             if (x <= 0xFFFF)
-            	return "\\x" + ((x >> 12) | 0xE0).toString(16).padStart(2, '0') + 
-                	   "\\x" + (((x >> 6) & 0x3F) | 0x80).toString(16).padStart(2, '0') +
-                	   "\\x" + ((x & 0x3F) | 0x80).toString(16).padStart(2, '0');
-    		else
-            	return "\\x" + ((x >> 18) | 0xF0).toString(16).padStart(2, '0') + 
-                	   "\\x" + (((x >> 12) & 0x3F) | 0x80).toString(16).padStart(2, '0') +
-                	   "\\x" + (((x >>  6) & 0x3F) | 0x80).toString(16).padStart(2, '0') +
-                	   "\\x" + ((x & 0x3F) | 0x80).toString(16).padStart(2, '0');
+                return "\\x" + ((x >> 12) | 0xE0).toString(16).padStart(2, '0') + 
+                       "\\x" + (((x >> 6) & 0x3F) | 0x80).toString(16).padStart(2, '0') +
+                       "\\x" + ((x & 0x3F) | 0x80).toString(16).padStart(2, '0');
+            else
+                return "\\x" + ((x >> 18) | 0xF0).toString(16).padStart(2, '0') + 
+                       "\\x" + (((x >> 12) & 0x3F) | 0x80).toString(16).padStart(2, '0') +
+                       "\\x" + (((x >>  6) & 0x3F) | 0x80).toString(16).padStart(2, '0') +
+                       "\\x" + ((x & 0x3F) | 0x80).toString(16).padStart(2, '0');
         }
     
         function char_array_to_alternations(chars, start, end, is_negated)
         {
-        	console.log("!!!!!");
-        	console.log(chars);
+            console.log("!!!!!");
+            console.log(chars);
             let failed = false;
             let in_escape = false;
             let in_range = false;
@@ -238,7 +239,7 @@ window.onload = () =>
                     classes.push([c, c]);
             }
             if (failed)
-            	return -1;
+                return -1;
     
             console.log("----");
     
@@ -411,28 +412,28 @@ window.onload = () =>
                 console.log(los);
                 console.log(his);
                 while (cmp(los.at(-1), his.at(-1)) > 0)
-               	{
-                	los.pop();
-                	his.pop();
+                {
+                    los.pop();
+                    his.pop();
                 }
                 his.reverse();
                 los.push(...his);
                 console.log(los);
                 for (let i = 0; i < los.length; i += 1)
                 {
-                	console.log(i);
+                    console.log(i);
                     if (los[i].length == 2)
                         los[i] = [los[i][1] | 0xC0,
-                            	  los[i][0] | 0x80];
+                                  los[i][0] | 0x80];
                     else if (los[i].length == 3)
                         los[i] = [los[i][2] | 0xE0,
-                            	  los[i][1] | 0x80,
-                            	  los[i][0] | 0x80];
+                                  los[i][1] | 0x80,
+                                  los[i][0] | 0x80];
                     else if (los[i].length == 4)
                         los[i] = [los[i][3] | 0xF0,
-                            	  los[i][2] | 0x80,
-                            	  los[i][1] | 0x80,
-                            	  los[i][0] | 0x80];
+                                  los[i][2] | 0x80,
+                                  los[i][1] | 0x80,
+                                  los[i][0] | 0x80];
                 }
                 console.log(los);
                 let pairs = [];
@@ -443,9 +444,9 @@ window.onload = () =>
                 let ret = "";
                 for (let p of pairs)
                 {
-                	console.log(p[0], p[1]);
-                	for (let i = 0; i < p[0].length; i += 1)
-                    	ret += flatten(byte_range_to_text([p[0][i], p[1][i]]));
+                    console.log(p[0], p[1]);
+                    for (let i = 0; i < p[0].length; i += 1)
+                        ret += flatten(byte_range_to_text([p[0][i], p[1][i]]));
                     ret += "|";
                 }
                 if (ret.endsWith("|"))
@@ -457,7 +458,7 @@ window.onload = () =>
             console.log(classes);
             
             let is_1byte = classes.length == 1 && classes[0][1] <= 0x7F;
-    		
+            
             let ret = !is_1byte ? "(?:" : "";
             for (let range of classes)
                 ret += range_to_text(range) + "|";
@@ -471,19 +472,19 @@ window.onload = () =>
         let ret = "";
         for (let i = 0; i < input_text.length; i += 1)
         {
-        	let c = input_text.codePointAt(i);
+            let c = input_text.codePointAt(i);
             if (in_escape)
             {
-            	in_escape = false;
+                in_escape = false;
                 if ("WwSsDd".includes(input_text[i]))
                 {
-                	ret += char_array_to_alternations(["\\", input_text[i]], 0, 2, false);
-                	continue;
+                    ret += char_array_to_alternations(["\\", input_text[i]], 0, 2, false);
+                    continue;
                 }
                 if (input_text[i] == "u" && i+4 < input_text.length)
                 {
-                	ret += char_array_to_alternations([
-                    	"\\",
+                    ret += char_array_to_alternations([
+                        "\\",
                         input_text[i],
                         input_text[i+1],
                         input_text[i+2],
@@ -491,37 +492,37 @@ window.onload = () =>
                         input_text[i+4]
                     ], 0, 2, false);
                     i += 4;
-                	continue;
+                    continue;
                 }
                 if (input_text[i] == "x" && input_text[i + 1] == "{")
                 {
-                	let j = i + 2;
+                    let j = i + 2;
                     while (j < input_text.length && input_text[j] != "}")
-                    	j += 1;
+                        j += 1;
                     if (j != input_text.length)
                     {
-                    	ret += char_array_to_alternations(Array.from(input_text.slice(i - 1, j + 1)), 0, j - i + 1, false);
+                        ret += char_array_to_alternations(Array.from(input_text.slice(i - 1, j + 1)), 0, j - i + 1, false);
                         i += j - i;
-                		continue;
+                        continue;
                     }
                 }
                 ret += "\\";
                 ret += String.fromCodePoint(c);
-            	if (c > 0xFFFF)
-                	i += 1;
+                if (c > 0xFFFF)
+                    i += 1;
                 continue;
             }
             if (input_text[i] == "\\")
             {
-            	in_escape = true;
+                in_escape = true;
                 continue;
             }
             if (input_text[i] != "[")
             {
                 ret += char_array_to_alternations([String.fromCodePoint(c)], 0, 1, false);
-            	if (c > 0xFFFF)
-                	i += 1;
-            	continue;
+                if (c > 0xFFFF)
+                    i += 1;
+                continue;
             }
             
             let itext = input_text.slice(i+1);
@@ -529,14 +530,14 @@ window.onload = () =>
             let caps = itext.match(group_end_re);
             if (caps == undefined)
             {
-            	ret = "<failed to parse>";
+                ret = "<failed to parse>";
                 break;
             }
             console.log(caps.indices);
             let end_pos = caps.indices[1][0] + 1;
             if (end_pos <= 0)
             {
-            	ret = "<failed to parse>";
+                ret = "<failed to parse>";
                 break;
             }
             
@@ -544,33 +545,33 @@ window.onload = () =>
             let chars = [];
             for (let i = 0; i < end_pos; i++)
             {
-            	let c = itext.codePointAt(i);
-            	if (c > 0xFFFF)
-                	i++;
+                let c = itext.codePointAt(i);
+                if (c > 0xFFFF)
+                    i++;
                 if (i != 0 || itext[i] != "^")
-                	chars.push(String.fromCodePoint(c));
+                    chars.push(String.fromCodePoint(c));
             }
             
             let is_negated = input_text[0] == "^";
             let start = is_negated ? 1 : 0;
     
             let info = char_array_to_alternations(chars, start, chars.length - 1, is_negated);
-    		
-    		if (info === -1)
-            	return "<failed to parse>";
-    		
+            
+            if (info === -1)
+                return "<failed to parse>";
+            
             let quantifier_re = /(?:[^\\\]]|\\.)*?](([+*?]|\{\d+,?\d*})[?+]?|)/d;
             let caps2 = itext.match(quantifier_re);
             
-    		ret += info;
+            ret += info;
             if (caps2)
-            	ret += itext.substr(caps2.indices[1][0], caps2.indices[1][1] - caps2.indices[1][0],);
-    		
+                ret += itext.substr(caps2.indices[1][0], caps2.indices[1][1] - caps2.indices[1][0],);
+            
             //i -= 1;
             if (caps2)
-            	i += caps2.indices[1][1];
+                i += caps2.indices[1][1];
             else
-            	i += end_pos;
+                i += end_pos;
         }
         //document.getElementById("output").innerText = output_text;
         document.getElementById("output").innerText = ret;
@@ -579,5 +580,6 @@ window.onload = () =>
     document.getElementById("input").oninput();
 }
 </script>
-</body>
-</html>
+
+
+</div></body></html>
